@@ -4,6 +4,7 @@ import {middyfy} from "../../libs/lambda";
 import createHttpError from "http-errors";
 
 export const getProductsById = async (event) => {
+    console.log('Get Products By Id Event triggered: ', event);
     try {
         const id = event.pathParameters?.productId;
         const product = await dataService.getProductById(id);
