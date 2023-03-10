@@ -6,6 +6,7 @@ import {dataService} from "../../data-service/data.service";
 
 
 export const getProductsList = async () => {
+    console.log('Get Product List Event triggered');
     try {
         const products = await dataService.getAllProducts();
         return formatJSONResponse(200, products);

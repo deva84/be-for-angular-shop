@@ -26,6 +26,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
+    post:
+      summary: Create a new product. If product img (= img url) and count are not provided, random 'Unsplash' image will be used, and count is defaulted to 1. Updated list of products, including newly created one, is returned.
+      requestBody:
+        description: Provide title, description and price to create new product.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddProduct'
+        required: true
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductList'
+        400:
+          description: "Invalid request"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidData'
+        500:
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
 
   /products/{productId}:
     get:
@@ -87,6 +115,41 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/Product'
+    AddProduct: 
+      type: object
+      properties:
+        title:
+          type: string
+          example: "New Product"
+        description:
+          type: string
+          example: "New product description"
+        img:
+          type: string
+        count:
+          type: integer
+          format: int64
+          example: 4
+        price:
+          type: integer
+          format: int64
+          example: 12.80
+      required:
+        - title
+        - description
+        - price
+    InvalidData:
+      type: object
+      properties:
+        code:
+          type: string
+          example: 400
+        message:
+          type: string
+          example: "Invalid data!"
+      required:
+        - code
+        - message
     NotFound:
       type: object
       properties:
