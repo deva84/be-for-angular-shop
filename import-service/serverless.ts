@@ -23,6 +23,11 @@ const serverlessConfiguration: AWS = {
         Action: ['s3:*'],
         Resource: `arn:aws:s3:::import-and-parse-s3-bucket/*`,
       },
+      {
+        Effect: 'Allow',
+        Action: 'sqs:SendMessage',
+        Resource: process.env.SQS_ARN as string,
+      }
     ],
     apiGateway: {
       minimumCompressionSize: 1024,
@@ -31,7 +36,8 @@ const serverlessConfiguration: AWS = {
     environment: {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       NODE_OPTIONS: '--enable-source-maps --stack-trace-limit=1000',
-      IMPORT_BUCKET: 'import-and-parse-s3-bucket'
+      IMPORT_BUCKET: 'import-and-parse-s3-bucket',
+      SQS_URL: process.env.SQS_URL as string,
     },
     s3: {
         importsBucket: {

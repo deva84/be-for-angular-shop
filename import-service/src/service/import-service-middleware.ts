@@ -2,11 +2,13 @@ import {s3Client} from "../common/client";
 import {CopyObjectCommand, DeleteObjectCommand, GetObjectCommand} from "@aws-sdk/client-s3";
 import csvParser from "csv-parser";
 import {config} from 'dotenv';
+import {SQS} from 'aws-sdk';
 
 config();
 export class ImportServiceMiddleware {
   private uploadedFolder = 'uploaded';
   private parsedFolder = 'parsed';
+  private sqs = new SQS();
 
   async handleFileImport(records): Promise<any> {
     try {
@@ -65,17 +67,25 @@ export class ImportServiceMiddleware {
   };
 
   readStream(stream: any): Promise<any> {
-    const data = [];
     return new Promise((resolve, reject) => {
       stream
         .pipe(csvParser())
-        .on('data', (item) => {
-          console.log(item);
-          data.push(item);
+        .on('data', async (item) => {
+          try {
+            await this.sqs.sendMessage({
+              QueueUrl: process.env.SQS_URL,
+              MessageBody: JSON.stringify(item)
+            }).promise();
+
+            console.log('Sent to qeueu: ', item);
+                
+          } catch(error) {
+            console.log('Failed to send next item to queue with an error: ', item, error);
+          }    
         })
         .on('end', () => {
-            console.log('importFileParser finished')
-          resolve(data);
+          console.log('Queue is complete');
+          resolve(null);
         })
         .on('error', (error) => {
           console.log(error)

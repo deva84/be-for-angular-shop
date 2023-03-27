@@ -1,7 +1,5 @@
 import type {AWS} from '@serverless/typescript';
-import {getProductsList} from "./src/functions";
-import {getProductsById} from "./src/functions";
-import {createProduct} from "./src/functions";
+import {getProductsById, getProductsList, catalogBatchProcess, createProduct} from "./src/functions";
 
 const serverlessConfiguration: AWS = {
   service: 'product-service',
@@ -20,6 +18,20 @@ const serverlessConfiguration: AWS = {
           `arn:aws:dynamodb:\${self:provider.region}:*:table/stock_table`
         ]
       },
+      {
+        Effect: 'Allow',
+        Action: 'sqs:*',
+        Resource: {
+          'Fn::GetAtt': ['sqsQueue', 'Arn']
+        }
+      },
+      {
+        Effect: 'Allow',
+        Action: 'sns:*',
+        Resource: {
+          Ref: 'snsTopic',
+        },
+      },
     ],
     apiGateway: {
       minimumCompressionSize: 1024,
@@ -29,7 +41,9 @@ const serverlessConfiguration: AWS = {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       NODE_OPTIONS: '--enable-source-maps --stack-trace-limit=1000',
       PRODUCT_TABLE: 'product_table',
-      STOCK_TABLE: 'stock_table'
+      STOCK_TABLE: 'stock_table',
+      SQS_URL: { Ref: 'sqsQueue' },
+      SNS_TOPIC_ARN: { Ref: 'snsTopic' },
     },
   },
   resources: {
@@ -65,12 +79,41 @@ const serverlessConfiguration: AWS = {
             WriteCapacityUnits: 1
           }
         },
-      }
+      },
+      sqsQueue: {
+        Type: 'AWS::SQS::Queue',
+        Properties: {
+          QueueName: 'catalogItemsQueue',
+        },
+      },
+      snsTopic: {
+        Type: 'AWS::SNS::Topic',
+        Properties: {
+          TopicName: 'createProductTopic',
+        },
+      },
+      snsSubscription: {
+        Type: 'AWS::SNS::Subscription',
+        Properties: {
+          Endpoint: 'svitlana_dasgupta@epam.com',
+          Protocol: 'email',
+          TopicArn: { Ref: 'snsTopic' },
+        },
+      },
+      snsRosesSubscription: {
+        Type: 'AWS::SNS::Subscription',
+        Properties: {
+          Endpoint: 'marketexe2016@gmail.com',
+          Protocol: 'email',
+          TopicArn: { Ref: 'snsTopic' },
+          FilterPolicy: JSON.stringify({ title: ['Roses'] }),
+        },
+      },
     }
   },
 
   // import the function via paths
-  functions: {getProductsList, getProductsById, createProduct},
+  functions: {getProductsList, getProductsById, createProduct, catalogBatchProcess},
   package: {individually: true},
   custom: {
     esbuild: {
