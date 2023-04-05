@@ -7,6 +7,7 @@ import createHttpError from 'http-errors';
 const sns = new SNS({ region: 'eu-west-1' });
 
 export const catalogBatchProcess = async (event: SQSEvent) => {
+  console.log('catalogBatchProcess is triggered with next event: ', event)
     try {
         const batch = [];
         const products = event.Records.map(({ body }) => {

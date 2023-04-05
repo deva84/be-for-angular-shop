@@ -5,14 +5,5 @@ config();
 
 export default {
     handler: `${handlerPath(__dirname)}/import-file-parser.importFileParser`,
-    events: [
-        {
-            s3: {
-                bucket: 'import-and-parse-s3-bucket',
-                event: 's3:ObjectCreated:*',
-                rules: [{ prefix: 'uploaded/' }],
-                existing: true,
-            }
-        }
-    ]
+    events: [{ s3: 'importsBucket' }],
 };

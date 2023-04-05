@@ -1,96 +1,67 @@
-import {s3Client} from "../common/client";
-import {CopyObjectCommand, DeleteObjectCommand, GetObjectCommand} from "@aws-sdk/client-s3";
 import csvParser from "csv-parser";
 import {config} from 'dotenv';
-import {SQS} from 'aws-sdk';
+import {SQS, S3} from 'aws-sdk';
 
 config();
 export class ImportServiceMiddleware {
   private uploadedFolder = 'uploaded';
   private parsedFolder = 'parsed';
   private sqs = new SQS();
+  private s3 = new S3({ region: 'eu-west-1' });
 
   async handleFileImport(records): Promise<any> {
-    try {
-      for (const record of records) {
-        await this.saveRecord(record);
-        await this.moveParsedRecord(record);
-      }
-    } catch (error) {
-      console.log(error);
-      throw error;
-    }
-  }
+    const s3Event = records[0].s3;
+    const bucket = s3Event.bucket.name;
+    const key = s3Event.object.key;
 
-  async moveParsedRecord(record) {
-    await this.copyFile(record);
-    await this.deleteFile(record);
+    const s3ReadStream = await this.s3.getObject({
+      Bucket: bucket,
+      Key: key
+    }).createReadStream();
 
-    const deleteCommand = new DeleteObjectCommand({
-      Bucket: record.s3.bucket.name,
-      Key: record.s3.object.key,
-    });
-    await s3Client.send(deleteCommand);
-  }
-
-  async copyFile(record) {
-    const moveCommand = new CopyObjectCommand({
-        Bucket: record.s3.bucket.name,
-        CopySource: `${record.s3.bucket.name}/${record.s3.object.key}`,
-        Key: record.s3.object.key.replace(this.uploadedFolder, this.parsedFolder),
-      });
-      return await s3Client.send(moveCommand);
-  }
-
-  async deleteFile(record) {
-    const commandParameters = {
-      Bucket: 'import-and-parse-s3-bucket',
-      Key: record.s3.object.key,
-    };
-    const command = new DeleteObjectCommand(commandParameters);
-    return await s3Client.send(command);
-  };
-
-  async saveRecord(record) {
-    console.log('processing file:', record.s3.object.key);
-    try {
-      const getCommand = new GetObjectCommand({
-        Bucket: 'import-and-parse-s3-bucket',
-        Key: record.s3.object.key,
-      });
-      const stream = await s3Client.send(getCommand);
-      await this.readStream(stream.Body);
-    } catch (error) {
-      console.log(error);
-      throw error;
-    }
-  };
-
-  readStream(stream: any): Promise<any> {
-    return new Promise((resolve, reject) => {
-      stream
-        .pipe(csvParser())
-        .on('data', async (item) => {
-          try {
-            await this.sqs.sendMessage({
-              QueueUrl: process.env.SQS_URL,
-              MessageBody: JSON.stringify(item)
-            }).promise();
-
-            console.log('Sent to qeueu: ', item);
-                
-          } catch(error) {
-            console.log('Failed to send next item to queue with an error: ', item, error);
-          }    
-        })
-        .on('end', () => {
-          console.log('Queue is complete');
-          resolve(null);
-        })
-        .on('error', (error) => {
-          console.log(error)
-          reject(error);
+    s3ReadStream.pipe(csvParser({ separator: ',' }))
+      .on('data', (data) => {
+        this.sqs.sendMessage({
+          QueueUrl: process.env.SQS_URL,
+          MessageBody: JSON.stringify(data).replace(/\ufeff/g, '')
+        }, (error, data) => {
+          if (error) {
+            console.log('Failed to send to SQS queue with an error: ', error);
+            throw error;
+          }
+          console.log('Sent to SQS:', JSON.stringify(data));
         });
-    });
-  };
+      })
+      .on('end', () => {
+        console.log('End of stream');
+        try {
+          const copyParams = {
+            Bucket: bucket,
+            CopySource: `${bucket}/${key}`,
+            Key: `${key.replace(this.uploadedFolder, this.parsedFolder)}`
+          };
+          this.s3.copyObject(copyParams, (error, data) => {
+            if (error) {
+              console.log('Failed to copy record with an error: ', error);
+              throw error;
+            }
+            console.log('Copied record: ', JSON.stringify(data));
+          });
+          const deleteParams = {
+            Bucket: bucket,
+            Key: key
+          };
+          this.s3.deleteObject(deleteParams, (error, data) => {
+            if (error) {
+              console.log('Failed to delete the record with an error: ', error);
+              throw error;
+            }
+            console.log('Deleted record: ', JSON.stringify(data));
+          });
+        } catch (error) {
+          console.log('Stream failed with an error: ', error);
+          throw error;
+        }
+      });
+  }
 }

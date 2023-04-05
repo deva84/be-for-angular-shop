@@ -26,8 +26,8 @@ const serverlessConfiguration: AWS = {
       {
         Effect: 'Allow',
         Action: 'sqs:SendMessage',
-        Resource: process.env.SQS_ARN as string,
-      }
+        Resource: 'arn:aws:sqs:us-east-1:843522005613:catalogItemsQueue',
+      },
     ],
     apiGateway: {
       minimumCompressionSize: 1024,
@@ -37,20 +37,36 @@ const serverlessConfiguration: AWS = {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       NODE_OPTIONS: '--enable-source-maps --stack-trace-limit=1000',
       IMPORT_BUCKET: 'import-and-parse-s3-bucket',
-      SQS_URL: process.env.SQS_URL as string,
+      SQS_URL: 'https://sqs.us-east-1.amazonaws.com/843522005613/catalogItemsQueue',
     },
     s3: {
-        importsBucket: {
-          name: 'import-and-parse-s3-bucket',
-          corsConfiguration: {
-            CorsRules: [
-              {
-                AllowedMethods: ['GET', 'PUT', 'HEAD', 'DELETE'],
-                AllowedHeaders: ['*'],
-                AllowedOrigins: ['*'],
+      importsBucket: {
+        name: 'import-and-parse-s3-bucket',
+        corsConfiguration: {
+          CorsRules: [
+            {
+              AllowedMethods: ['GET', 'PUT', 'HEAD', 'DELETE'],
+              AllowedHeaders: ['*'],
+              AllowedOrigins: ['*'],
+            },
+          ],
+        },
+        notificationConfiguration: {
+          LambdaConfigurations: [
+            {
+              Event: 's3:ObjectCreated:*',
+              Filter: {
+                S3Key: {
+                  Rules: [
+                    { Name: 'prefix', Value: 'uploaded/' },
+                    { Name: 'suffix', Value: '.csv' },
+                  ],
+                },
               },
-            ],
-          },
+              Function: { 'Fn::GetAtt': ['ImportFileParserLambdaFunction', 'Arn'] },
+            },
+          ],
+        },
       },
     },
   },
