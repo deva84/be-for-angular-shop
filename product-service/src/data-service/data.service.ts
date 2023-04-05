@@ -52,7 +52,7 @@ export class DataService {
     });
   }
 
-  createProduct(item: Omit<Product, 'id'>): Promise<Product[]> {
+  createProduct(item: Omit<Product, 'id'>): Promise<ProductTableItem> {
     const productTableItem: ProductTableItem = {
       id: uuidv4(),
       title: item.title,
@@ -70,7 +70,7 @@ export class DataService {
 
     return Promise.all([addProductItem, addStockItem]).then(() => {
       console.log(`New product ${JSON.stringify(item)}, ID: ${productTableItem.id} was successfully created!`);
-      return this.getAllProducts();
+      return productTableItem;
     });
   }
 }

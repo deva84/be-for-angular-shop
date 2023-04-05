@@ -14,7 +14,15 @@ export const createProduct = async (event) => {
     }
 
     const response = await dataService.createProduct({title, description, price, img, count});
-    return formatJSONResponse(200, response);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+      headers: {
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
+      },
+    }
 
   } catch (error) {
     const response = new createHttpError.InternalServerError(error.message);
