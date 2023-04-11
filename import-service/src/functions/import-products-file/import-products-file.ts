@@ -29,7 +29,15 @@ export const importProductsFile = async (event) => {
 
         });
 
-        return formatJSONResponse(200, signedUrl);
+        return {
+          statusCode: 200,
+          body: signedUrl,
+          headers: {
+            "Access-Control-Allow-Origin": "https://dsu9vo4edfzlb.cloudfront.net",
+            //@ts-ignore
+            "Access-Control-Allow-Credentials": true
+          }
+        };
 
     } catch (error) {
         console.log('Function "importProductFile" returned an error: ', error);
